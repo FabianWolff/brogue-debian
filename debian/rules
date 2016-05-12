@@ -1,0 +1,19 @@
+#!/usr/bin/make -f
+
+# Uncomment this to turn on verbose mode:
+export DH_VERBOSE = 1
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+export DEB_CFLAGS_MAINT_APPEND = -Wall -pedantic
+export DEB_LDFLAGS_MAINT_APPEND = -Wl,--as-needed
+
+%:
+	dh $@
+
+override_dh_install:
+	mkdir -p debian/tmp/usr/games/
+	cp bin/brogue debian/tmp/usr/games/
+	mkdir -p debian/tmp/usr/share/pixmaps/
+	cp bin/brogue-icon.png \
+	  debian/tmp/usr/share/pixmaps/brogue.png
+	dh_install

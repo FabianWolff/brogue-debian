@@ -1,0 +1,305 @@
+Description: Fix file paths
+Author: Fabian Wolff <fabi.wolff@arcor.de>
+Forwarded: no
+Last-Update: 2016-04-30
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/src/brogue/MainMenu.c
++++ b/src/brogue/MainMenu.c
+@@ -606,7 +606,7 @@
+     char buf[500];
+     FILE *logFile;
+     
+-    logFile = fopen("Brogue seed catalog.txt", "w");
++    logFile = brogue_fopen("Brogue seed catalog.txt", "w");
+     rogue.nextGame = NG_NOTHING;
+     
+     getAvailableFilePath(path, LAST_GAME_NAME, GAME_SUFFIX);
+--- a/src/brogue/Recordings.c
++++ b/src/brogue/Recordings.c
+@@ -185,13 +185,13 @@
+ 	i += 4;
+ 	
+ 	if (!fileExists(path)) {
+-		recordFile = fopen(path, "wb");
++		recordFile = brogue_fopen(path, "wb");
+ 		if (recordFile) {
+ 			fclose(recordFile);
+ 		}
+ 	}
+ 	
+-	recordFile = fopen(path, "r+b");
++	recordFile = brogue_fopen(path, "r+b");
+ 	rewind(recordFile);
+ 	for (i=0; i<RECORDING_HEADER_LENGTH; i++) {
+ 		putc(c[i], recordFile);
+@@ -218,7 +218,7 @@
+ 	
+ 	if (locationInRecordingBuffer != 0) {
+ 		
+-		recordFile = fopen(currentFilePath, "ab");
++		recordFile = brogue_fopen(currentFilePath, "ab");
+ 		
+ 		for (i=0; i<locationInRecordingBuffer; i++) {
+ 			putc(inputRecordBuffer[i], recordFile);
+@@ -238,7 +238,7 @@
+ //	short i;
+ 	FILE *recordFile;
+ 	
+-	recordFile = fopen(currentFilePath, "rb");
++	recordFile = brogue_fopen(currentFilePath, "rb");
+ 	fseek(recordFile, positionInPlaybackFile, SEEK_SET);
+ 	
+ 	fread((void *) inputRecordBuffer, 1, INPUT_RECORD_BUFFER, recordFile);
+@@ -376,7 +376,7 @@
+ 		return;
+ 	}
+ 	
+-	annotationFile =  fopen(annotationPathname, "r");
++	annotationFile =  brogue_fopen(annotationPathname, "r");
+ 	fseek(annotationFile, rogue.locationInAnnotationFile, SEEK_SET);
+ 	
+ 	for (;;) {
+@@ -454,7 +454,7 @@
+ 	if (fileExists(RNG_LOG)) {
+ 		remove(RNG_LOG);
+ 	}
+-	RNGLogFile = fopen(RNG_LOG, "a");
++	RNGLogFile = brogue_fopen(RNG_LOG, "a");
+ #endif
+ 	
+ 	locationInRecordingBuffer	= 0;
+@@ -505,7 +505,7 @@
+ 	} else {
+ 		lengthOfPlaybackFile = 1;
+ 		remove(currentFilePath);
+-		recordFile = fopen(currentFilePath, "wb"); // create the file
++		recordFile = brogue_fopen(currentFilePath, "wb"); // create the file
+ 		fclose(recordFile);
+ 		
+ 		flushBufferToFile(); // header info never makes it into inputRecordBuffer when recording
+@@ -1079,8 +1079,8 @@
+ 	
+ 	remove(toFilePath);
+ 	
+-	fromFile	= fopen(fromFilePath, "rb");
+-	toFile		= fopen(toFilePath, "wb");
++	fromFile	= brogue_fopen(fromFilePath, "rb");
++	toFile		= brogue_fopen(toFilePath, "wb");
+ 	
+ 	for (n = 0; n < fromFileLength; n += m) {
+ 		m = min(INPUT_RECORD_BUFFER, fromFileLength - n);
+@@ -1254,7 +1254,7 @@
+ 		lengthOfPlaybackFile = 10000000; // hack so that the recalls don't freak out
+ 		fillBufferFromFile();
+ 		
+-		descriptionFile = fopen("Recording Description.txt", "w");
++		descriptionFile = brogue_fopen("Recording Description.txt", "w");
+ 		
+ 		for (i=0; i<16; i++) {
+ 			versionString[i] = recallChar();
+--- a/src/brogue/Rogue.h
++++ b/src/brogue/Rogue.h
+@@ -25,6 +25,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include "PlatformDefines.h"
++#include "file_io.h"
+ 
+ // unicode: comment this line to revert to ASCII
+ 
+--- a/src/brogue/RogueMain.c
++++ b/src/brogue/RogueMain.c
+@@ -44,7 +44,7 @@
+ 
+ boolean fileExists(const char *pathname) {
+ 	FILE *openedFile;
+-	openedFile = fopen(pathname, "rb");
++	openedFile = brogue_fopen(pathname, "rb");
+ 	if (openedFile) {
+ 		fclose(openedFile);
+ 		return true;
+--- /dev/null
++++ b/src/platform/file_io.c
+@@ -0,0 +1,90 @@
++#include "file_io.h"
++
++#include <stdio.h>
++#include <string.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <pwd.h>
++
++#define BROGUE_REL_HOME_DIR "/.brogue/"
++#define BROGUE_ASSET_DIR "/usr/share/games/brogue/"
++
++static char *brogue_home_dir = NULL;
++static char is_initialized = 0;
++
++static void init_brogue_home_dir ()
++{
++    if (is_initialized) return;
++
++    if (asprintf (&brogue_home_dir, "%s%s",
++                  getpwuid (getuid ())->pw_dir,
++                  BROGUE_REL_HOME_DIR) > 0)
++    {
++        struct stat st = { 0 };
++        if (stat (brogue_home_dir, &st) == -1)
++            mkdir (brogue_home_dir, 0700);
++
++        is_initialized = 1;
++    }
++}
++
++static char *get_actual_path (const char *file)
++{
++    init_brogue_home_dir ();
++
++    char *actual_path = NULL;
++
++    if (asprintf (&actual_path, "%s%s", brogue_home_dir, file) < 0)
++        return NULL;
++
++    return actual_path;
++}
++
++static char *get_actual_asset_path (const char *file)
++{
++    char *actual_path = NULL;
++
++    if (asprintf (&actual_path, "%s%s", BROGUE_ASSET_DIR, file) < 0)
++        return NULL;
++
++    return actual_path;
++}
++
++FILE *brogue_fopen (const char *file, const char *mode)
++{
++    FILE *f = NULL;
++    char *actual_path = get_actual_path (file);
++
++    if (actual_path != NULL)
++    {
++        f = fopen (actual_path, mode);
++
++        if (!f)
++            fprintf (stderr, "Could not open file: %s\n", actual_path);
++
++        free (actual_path);
++    }
++
++    return f;
++}
++
++char *brogue_get_font_file_path (const short brogue_font_size)
++{
++    char *font_file = NULL;
++
++    if (asprintf (&font_file, "fonts/font-%d.png", brogue_font_size) > 0)
++    {
++        char *buf = get_actual_asset_path (font_file);
++        free (font_file);
++        return buf;
++    }
++    else
++        return NULL;
++}
++
++char *brogue_get_icon_file_path ()
++{
++    return get_actual_asset_path ("icon.bmp");
++}
+--- /dev/null
++++ b/src/platform/file_io.h
+@@ -0,0 +1,9 @@
++#pragma once
++
++#define _GNU_SOURCE
++#include <stdio.h>
++
++FILE *brogue_fopen (const char *file, const char *mode);
++
++char *brogue_get_font_file_path (const short brogue_font_size);
++char *brogue_get_icon_file_path (void);
+--- a/src/platform/platformdependent.c
++++ b/src/platform/platformdependent.c
+@@ -76,7 +76,7 @@
+ 	short i;
+ 	FILE *scoresFile;
+ 	
+-	scoresFile = fopen("BrogueHighScores.txt", "w");
++	scoresFile = brogue_fopen("BrogueHighScores.txt", "w");
+ 	for (i=0; i<HIGH_SCORES_COUNT; i++) {
+ 		fprintf(scoresFile, "%li\t%li\t%s", (long) 0, (long) 0, "(empty entry)\n");
+ 	}
+@@ -129,11 +129,11 @@
+ 	time_t rawtime;
+ 	struct tm * timeinfo;
+ 	
+-	scoresFile = fopen("BrogueHighScores.txt", "r");
++	scoresFile = brogue_fopen("BrogueHighScores.txt", "r");
+ 	
+ 	if (scoresFile == NULL) {
+ 		initScores();
+-		scoresFile = fopen("BrogueHighScores.txt", "r");
++		scoresFile = brogue_fopen("BrogueHighScores.txt", "r");
+ 	}
+ 	
+ 	for (i=0; i<HIGH_SCORES_COUNT; i++) {
+@@ -160,7 +160,7 @@
+ 
+ 	char buffer[512];
+ 	
+-	f = fopen("keymap", "r");
++	f = brogue_fopen("keymap", "r");
+ 	
+ 	if (f != NULL) {
+ 		while (fgets(buffer, 512, f) != NULL) {
+@@ -198,7 +198,7 @@
+ 	short i;
+ 	FILE *scoresFile;
+ 	
+-	scoresFile = fopen("BrogueHighScores.txt", "w");
++	scoresFile = brogue_fopen("BrogueHighScores.txt", "w");
+ 	
+ 	for (i=0; i<HIGH_SCORES_COUNT; i++) {
+ 		// save the entry
+--- a/src/platform/tcod-platform.c
++++ b/src/platform/tcod-platform.c
+@@ -61,7 +61,9 @@
+ 
+ 	}
+ 
+-	sprintf(font, "fonts/font-%i.png", brogueFontSize);
++	char *font_buf = brogue_get_font_file_path (brogueFontSize);
++	sprintf(font, "%s", font_buf);
++	free (font_buf);
+ 	
+ 	TCOD_console_set_custom_font(font, (TCOD_FONT_TYPE_GREYSCALE | TCOD_FONT_LAYOUT_ASCII_INROW), 0, 0);
+ 	TCOD_console_init_root(COLS, ROWS, "Brogue", false, renderer);
+@@ -70,7 +72,9 @@
+ 	TCOD_console_set_keyboard_repeat(175, 30);
+ 	TCOD_mouse_show_cursor(1);
+ 
+-	SDL_SetWindowIcon ((SDL_Window *) TCOD_sys_get_SDL_window (), SDL_LoadBMP ("icon.bmp"));
++	char *icon = brogue_get_icon_file_path ();
++	SDL_SetWindowIcon ((SDL_Window *) TCOD_sys_get_SDL_window (), SDL_LoadBMP (icon));
++	free (icon);
+ }
+ 
+ static void gameLoop()
+--- a/Makefile
++++ b/Makefile
+@@ -37,7 +37,8 @@
+ 	src/platform/platformdependent.o \
+ 	src/platform/curses-platform.o \
+ 	src/platform/tcod-platform.o \
+-	src/platform/term.o
++	src/platform/term.o \
++	src/platform/file_io.o
+ 
+ TCOD_DEF = -DBROGUE_TCOD -I/usr/include/libtcod
+ TCOD_DEP =

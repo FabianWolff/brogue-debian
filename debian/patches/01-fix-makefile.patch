@@ -1,0 +1,50 @@
+Description: Fix various issues with the Makefile
+Author: Fabian Wolff <fabi.wolff@arcor.de>
+Forwarded: no
+Last-Update: 2016-04-29
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/Makefile
++++ b/Makefile
+@@ -1,9 +1,7 @@
+-
+-SDL_FLAGS = `sdl-config --cflags` `sdl-config --libs`
+-LIBTCODDIR=src/libtcod-1.5.2
+-CFLAGS=-Isrc/brogue -Isrc/platform -Wall -Wno-parentheses ${DEFINES}
++SDL_FLAGS = `sdl2-config --cflags --libs`
++CFLAGS=-Isrc/brogue -Isrc/platform -Wall -Wno-parentheses ${DEFINES} `dpkg-buildflags --get CFLAGS` `dpkg-buildflags --get CPPFLAGS` `dpkg-buildflags --get LDFLAGS`
+ RELEASENAME=brogue-1.7.4
+-LASTTARGET := $(shell ./brogue --target)
++LASTTARGET := both
+ CC ?= gcc
+ 
+ ifeq (${LASTTARGET},both)
+@@ -41,9 +39,9 @@
+ 	src/platform/tcod-platform.o \
+ 	src/platform/term.o
+ 
+-TCOD_DEF = -DBROGUE_TCOD -I$(LIBTCODDIR)/include
+-TCOD_DEP = ${LIBTCODDIR}
+-TCOD_LIB = -L. -L${LIBTCODDIR} ${SDL_FLAGS} -ltcod -Wl,-rpath,.
++TCOD_DEF = -DBROGUE_TCOD -I/usr/include/libtcod
++TCOD_DEP =
++TCOD_LIB = ${SDL_FLAGS} -ltcod
+ 
+ CURSES_DEF = -DBROGUE_CURSES
+ CURSES_LIB = -lncurses -lm
+@@ -81,14 +79,11 @@
+ .PHONY : clean both curses tcod tar
+ 
+ bin/brogue : ${DEPENDENCIES} ${BROGUEFILES}
+-	$(CC) -O2 -march=i586 -o bin/brogue ${BROGUEFILES} ${LIBRARIES} -Wl,-rpath,.
++	$(CC) $(CFLAGS) -o bin/brogue ${BROGUEFILES} ${LIBRARIES}
+ 
+ clean : 
+ 	rm -f src/brogue/*.o src/platform/*.o bin/brogue
+ 
+-${LIBTCODDIR} :
+-	src/get-libtcod.sh
+-
+ tar : both
+ 	rm -f ${RELEASENAME}.tar.gz
+ 	tar --transform 's,^,${RELEASENAME}/,' -czf ${RELEASENAME}.tar.gz \

@@ -1,0 +1,5 @@
+brogue (1.7.4-1) UNRELEASED; urgency=medium
+
+  * Initial release. (Closes: #698843)
+
+ -- Fabian Wolff <fabi.wolff@arcor.de>  Fri, 29 Apr 2016 13:39:13 +0200

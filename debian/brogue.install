@@ -1,0 +1,4 @@
+usr/games/brogue
+agpl.txt usr/share/doc/brogue/
+debian/brogue.desktop usr/share/applications
+usr/share/pixmaps/brogue.png

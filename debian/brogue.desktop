@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Brogue
+Type=Application
+Categories=Game
+Exec=brogue
+Icon=brogue
+Comment=A roguelike dungeon exploration game
+Keywords=Roguelike

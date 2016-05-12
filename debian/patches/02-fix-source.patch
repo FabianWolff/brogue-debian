@@ -1,0 +1,596 @@
+Description: Fix some errors and warnings
+Author: Fabian Wolff <fabi.wolff@arcor.de>
+Forwarded: no
+Last-Update: 2016-04-29
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/src/platform/tcod-platform.c
++++ b/src/platform/tcod-platform.c
+@@ -2,8 +2,14 @@
+ #include <stdio.h>
+ #include <string.h>
+ #include <time.h>
+-#include <SDL/SDL.h>
++#include <SDL2/SDL.h>
+ #include "libtcod.h"
++#ifdef true
++#undef true
++#endif
++#ifdef false
++#undef false
++#endif
+ #include "platform.h"
+ 
+ #if TCOD_TECHVERSION >= 0x01050103
+@@ -33,9 +39,13 @@
+ 		int fontWidths[13] = {112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 272, 288, 304}; // widths of the font graphics (divide by 16 to get individual character width)
+ 		int fontHeights[13] = {176, 208, 240, 272, 304, 336, 368, 400, 432, 464, 496, 528, 528}; // heights of the font graphics (divide by 16 to get individual character height)
+ 
+-		const SDL_VideoInfo* vInfo = SDL_GetVideoInfo();
+-		int screenWidth = desktop_width = vInfo->current_w;
+-		int screenHeight = desktop_height = vInfo->current_h;
++		int screenWidth, screenHeight;
++
++		TCOD_sys_startup ();
++		TCOD_sys_get_current_resolution (&screenWidth, &screenHeight);
++
++                desktop_width = screenWidth;
++                desktop_height = screenHeight;
+ 
+ 		// adjust for title bars and whatever -- very approximate, but better than the alternative
+ 		screenWidth -= 6;
+@@ -60,7 +70,7 @@
+ 	TCOD_console_set_keyboard_repeat(175, 30);
+ 	TCOD_mouse_show_cursor(1);
+ 
+-	SDL_WM_SetIcon(SDL_LoadBMP("icon.bmp"), NULL);
++	SDL_SetWindowIcon ((SDL_Window *) TCOD_sys_get_SDL_window (), SDL_LoadBMP ("icon.bmp"));
+ }
+ 
+ static void gameLoop()
+@@ -223,9 +233,8 @@
+ }
+ 
+ static void getModifiers(rogueEvent *returnEvent) {
+-	Uint8 *keystate = SDL_GetKeyState(NULL);
+-	returnEvent->controlKey = keystate[SDLK_LCTRL] || keystate[SDLK_RCTRL];
+-	returnEvent->shiftKey = keystate[SDLK_LSHIFT] || keystate[SDLK_RSHIFT];
++	returnEvent->controlKey = TCOD_console_is_key_pressed (TCODK_CONTROL);
++	returnEvent->shiftKey = TCOD_console_is_key_pressed (TCODK_SHIFT);
+ }
+ 
+ 
+@@ -357,7 +366,6 @@
+ 
+ static void tcod_nextKeyOrMouseEvent(rogueEvent *returnEvent, boolean textInput, boolean colorsDance)
+ {
+-	boolean tryAgain;
+ 	TCOD_key_t key;
+ 	TCOD_mouse_t mouse;
+ 	uint32 theTime, waitTime;
+@@ -380,8 +388,6 @@
+ 			return;
+ 		}
+ 		
+-		tryAgain = false;
+-		
+ 		if (bufferedKey.vk != TCODK_NONE) {
+ 			rewriteKey(&bufferedKey, textInput);
+ 			if (processKeystroke(bufferedKey, returnEvent, textInput)) {
+@@ -424,7 +430,11 @@
+ 			return;
+ 		}
+ 		
+-		if (!(serverMode || (SDL_GetAppState() & SDL_APPACTIVE))) {
++		if (!serverMode &&
++                    ((SDL_GetWindowFlags ((SDL_Window *)
++                                          TCOD_sys_get_SDL_window ())
++                      & (SDL_WINDOW_SHOWN | SDL_WINDOW_MINIMIZED))
++                     != SDL_WINDOW_SHOWN)) {
+ 			TCOD_sys_sleep_milli(100);
+ 		} else {
+ 			if (colorsDance) {
+@@ -447,7 +457,10 @@
+ 
+ 		mouse = TCOD_mouse_get_status();
+ 
+-		if (serverMode || (SDL_GetAppState() & SDL_APPACTIVE)) {
++		if (serverMode ||
++                    (SDL_GetWindowFlags ((SDL_Window *)
++                                         TCOD_sys_get_SDL_window ())
++                     & (SDL_WINDOW_MOUSE_FOCUS | SDL_WINDOW_INPUT_FOCUS))) {
+ 			x = mouse.cx;
+ 			y = mouse.cy;
+ 		} else {
+--- a/src/brogue/Buttons.c
++++ b/src/brogue/Buttons.c
+@@ -324,7 +324,7 @@
+ 					  short winWidth,
+ 					  short winHeight,
+ 					  rogueEvent *returnEvent) {
+-	short x, y, button; // (x, y) keeps track of the mouse location
++	short button;
+ 	boolean canceled;
+ 	rogueEvent theEvent;
+ 	buttonState state = {0};
+@@ -333,8 +333,6 @@
+ 	
+ 	canceled = false;
+ 	
+-	x = y = -1;
+-	
+ 	initializeButtonState(&state, buttons, buttonCount, winX, winY, winWidth, winHeight);
+ 	
+ //	short i, j;
+--- a/src/brogue/Globals.c
++++ b/src/brogue/Globals.c
+@@ -69,7 +69,7 @@
+ char annotationPathname[BROGUE_FILENAME_MAX];	// pathname of annotation file
+ unsigned long previousGameSeed;
+ 
+-#pragma mark Colors
++// #pragma mark Colors
+ //									Red		Green	Blue	RedRand	GreenRand	BlueRand	Rand	Dances?
+ // basic colors
+ const color white =					{100,	100,	100,	0,		0,			0,			0,		false};
+@@ -356,7 +356,7 @@
+ //const color flameTitleColor = {0, 0, 0, 15, 15, 9, 0, true}; // pale yellow
+ //const color flameTitleColor = {0, 0, 0, 15, 9, 15, 0, true}; // pale purple
+ 
+-#pragma mark Dynamic color references
++// #pragma mark Dynamic color references
+ 
+ const color *dynamicColors[NUMBER_DYNAMIC_COLORS][3] = {
+ 	// used color			shallow color				deep color
+@@ -368,7 +368,7 @@
+ 	{&chasmEdgeBackColor,	&chasmEdgeBackColorStart,	&chasmEdgeBackColorEnd},
+ };
+ 
+-#pragma mark Autogenerator definitions
++// #pragma mark Autogenerator definitions
+ 
+ const autoGenerator autoGeneratorCatalog[NUMBER_AUTOGENERATORS] = {
+ //	 terrain					layer	DF							Machine						reqDungeon  reqLiquid   >Depth	<Depth          freq	minIncp	minSlope	maxNumber
+@@ -432,7 +432,7 @@
+ 	{0,							0,		0,							MT_WORM_AREA,				FLOOR,		NOTHING,    12,		DEEPEST_LEVEL-1,12,		0,		0,			3},
+ };
+ 
+-#pragma mark Terrain definitions
++// #pragma mark Terrain definitions
+ 
+ const floorTileType tileCatalog[NUMBER_TILETYPES] = {
+ 	
+@@ -687,7 +687,7 @@
+     {OMEGA_CHAR,	&mudWallForeColor,      &refuseBackColor,		25,	50,	DF_EMBERS,		0,			0,              0,				NO_LIGHT,		(T_OBSTRUCTS_VISION | T_OBSTRUCTS_GAS | T_IS_FLAMMABLE), (TM_STAND_IN_TILE | TM_VISUALLY_DISTINCT), "hanging animal skins",	"you push through the animal skins that hang across the threshold."},
+ };
+ 
+-#pragma mark Dungeon Feature definitions
++// #pragma mark Dungeon Feature definitions
+ 
+ // Features in the gas layer use the startprob as volume, ignore probdecr, and spawn in only a single point.
+ // Intercepts and slopes are in units of 0.01.
+@@ -1007,7 +1007,7 @@
+     {STENCH_SMOKE_GAS,          GAS,		50,		0,		0, "", 0, 0, 0, 0, DF_EMBERS},
+ };
+ 
+-#pragma mark Dungeon Profiles
++// #pragma mark Dungeon Profiles
+ 
+ dungeonProfile dungeonProfileCatalog[NUMBER_DUNGEON_PROFILES] = {
+     // Room frequencies:
+@@ -1029,7 +1029,7 @@
+     {{0,    5,  0,  1,  0,  0,  0,  0}, 0},     // Sentinel sanctuaries
+ };
+ 
+-#pragma mark Lights
++// #pragma mark Lights
+ 
+ // radius is in units of 0.01
+ const lightSource lightCatalog[NUMBER_LIGHT_KINDS] = {
+@@ -1098,7 +1098,7 @@
+     {&descentLightColor,    {600, 600, 1},          0,      false},     // magical pit light
+ };
+ 
+-#pragma mark Blueprints
++// #pragma mark Blueprints
+ 
+ const blueprint blueprintCatalog[NUMBER_BLUEPRINTS] = {
+ 	{{0}}, // nothing
+@@ -1542,7 +1542,7 @@
+ };
+ 
+ 
+-#pragma mark Monster definitions
++// #pragma mark Monster definitions
+ 
+ // Defines all creatures, which include monsters and the player:
+ creatureType monsterCatalog[NUMBER_MONSTER_KINDS] = {
+@@ -1689,7 +1689,7 @@
+ 		(MONST_IMMUNE_TO_WEBS | MONST_ALWAYS_USE_ABILITY | MONST_MAINTAINS_DISTANCE | MONST_MALE | MONST_FEMALE), (0)},
+ };
+ 
+-#pragma mark Monster words
++// #pragma mark Monster words
+ 
+ const monsterWords monsterText[NUMBER_MONSTER_KINDS] = {
+ 	{"A naked adventurer in an unforgiving place, bereft of equipment and confused about the circumstances.",
+@@ -1923,7 +1923,7 @@
+ 		{"whips", "lashes", "thrashes", "lacerates", {0}}},
+ };
+ 
+-#pragma mark Mutation definitions
++// #pragma mark Mutation definitions
+ 
+ const mutation mutationCatalog[NUMBER_MUTATORS] = {
+     //Title         textColor       healthFactor    moveSpdMult attackSpdMult   defMult damMult DF% DFtype  light   monstFlags  abilityFlags    forbiddenFlags      forbiddenAbilities
+@@ -1945,7 +1945,7 @@
+         "A rare mutation has coated $HISHER flesh with reflective scales."},
+ };
+ 
+-#pragma mark Horde definitions
++// #pragma mark Horde definitions
+ 
+ const hordeType hordeCatalog[NUMBER_HORDES] = {
+ 	// leader		#members	member list								member numbers					minL	maxL	freq	spawnsIn		machine			flags
+@@ -2144,7 +2144,7 @@
+ 	{MK_GOBLIN,			1,		{MK_GOBLIN},							{{1, 2, 1}},					3,		7,		1,		0,              0,				HORDE_MACHINE_GOBLIN_WARREN | HORDE_LEADER_CAPTIVE},
+ };
+ 
+-#pragma mark Monster class definitions
++// #pragma mark Monster class definitions
+ 
+ const monsterClass monsterClassCatalog[MONSTER_CLASS_COUNT] = {
+     // name             frequency   maxDepth    member list
+@@ -2165,7 +2165,7 @@
+ 
+ // ITEMS
+ 
+-#pragma mark Item flavors
++// #pragma mark Item flavors
+ 
+ char itemTitles[NUMBER_SCROLL_KINDS][30];
+ 
+@@ -2285,7 +2285,7 @@
+ 	"jasper"
+ };
+ 
+-#pragma mark Item definitions
++// #pragma mark Item definitions
+ 
+ //typedef struct itemTable {
+ //	char *name;
+@@ -2308,7 +2308,7 @@
+ };
+ 
+ const itemTable weaponTable[NUMBER_WEAPON_KINDS] = {
+-	{"dagger",				"", "", 10, 190,		12,	{3,	4,	1},		true, false, "A simple iron dagger with a well-worn wooden handle. Daggers will deal quintuple damage upon a succesful sneak attack instead of triple damage."},
++	{"dagger",				"", "", 10, 190,		12,	{3,	4,	1},		true, false, "A simple iron dagger with a well-worn wooden handle. Daggers will deal quintuple damage upon a successful sneak attack instead of triple damage."},
+ 	{"sword",				"", "", 10, 440,		14, {7,	9,	1},		true, false, "The razor-sharp length of steel blade shines reassuringly."},
+ 	{"broadsword",			"", "", 10, 990,		19,	{14, 22, 1},	true, false, "This towering blade inflicts heavy damage by investing its heft into every cut."},
+ 	
+@@ -2456,7 +2456,7 @@
+     {"negation",        "", "",	5,	700,	0,{1,2,1}, true, false, "A featureless gray disc hangs from a leather lanyard. When you touch it, your hand briefly goes numb."},
+ };
+ 
+-#pragma mark Bolt definitions
++// #pragma mark Bolt definitions
+ 
+ const bolt boltCatalog[NUMBER_BOLT_KINDS] = {
+     {{0}},
+@@ -2493,7 +2493,7 @@
+     {"whip",                    "whips",                        "wields a whip",                            '*',    &tanColor,      NULL,               BE_ATTACK,      1,              0,          0,          MONST_IMMUNE_TO_WEAPONS,    (BF_TARGET_ENEMIES | BF_NEVER_REFLECTS | BF_NOT_LEARNABLE | BF_DISPLAY_CHAR_ALONG_LENGTH)},
+ };
+ 
+-#pragma mark Feat definitions
++// #pragma mark Feat definitions
+ 
+ const feat featTable[FEAT_COUNT] = {
+     {"Pure Mage",       "Ascend without using fists or a weapon.", true},
+@@ -2509,7 +2509,7 @@
+     {"Paladin",         "Ascend without attacking an unaware or fleeing creature.", true},
+ };
+ 
+-#pragma mark Miscellaneous definitions
++// #pragma mark Miscellaneous definitions
+ 
+ const char monsterBehaviorFlagDescriptions[32][COLS] = {
+ 	"is invisible",								// MONST_INVISIBLE
+--- a/src/brogue/IO.c
++++ b/src/brogue/IO.c
+@@ -387,6 +387,7 @@
+         }
+     } while (takeActionOurselves[buttonChosen]);
+     brogueAssert(false);
++    return 0;
+ }
+ 
+ #define MAX_MENU_BUTTON_COUNT 5
+@@ -501,7 +502,7 @@
+ 
+ // This is basically the main loop for the game.
+ void mainInputLoop() {
+-	short originLoc[2], pathDestination[2], oldTargetLoc[2],
++	short originLoc[2], pathDestination[2], oldTargetLoc[2] = { 0, 0 },
+ 	path[1000][2], steps, oldRNG, dir, newX, newY;
+ 	creature *monst;
+ 	item *theItem;
+@@ -3246,7 +3247,7 @@
+ // we won't know if it will fit on the screen in normal order until we try.
+ // So if we try and fail, this function will call itself again, but with this set to true.
+ void refreshSideBar(short focusX, short focusY, boolean focusedEntityMustGoFirst) {
+-	short printY, oldPrintY, shortestDistance, i, j, k, px, py, x, y, displayEntityCount, indirectVision;
++	short printY, oldPrintY, shortestDistance, i, j, k, px, py, x = 0, y = 0, displayEntityCount, indirectVision;
+ 	creature *monst, *closestMonst;
+ 	item *theItem, *closestItem;
+ 	char buf[COLS];
+--- a/src/brogue/Items.c
++++ b/src/brogue/Items.c
+@@ -101,7 +101,7 @@
+ 
+ // Sets an item to the given type and category (or chooses randomly if -1) with all other stats
+ item *makeItemInto(item *theItem, unsigned long itemCategory, short itemKind) {
+-	itemTable *theEntry;
++	itemTable *theEntry = NULL;
+     
+ 	if (itemCategory <= 0) {
+ 		itemCategory = ALL_ITEMS;
+@@ -2641,7 +2641,7 @@
+ 	cellDisplayBuffer dbuf[COLS][ROWS];
+ 	cellDisplayBuffer rbuf[COLS][ROWS];
+ 	brogueButton buttons[50] = {{{0}}};
+-	short actionKey;
++	short actionKey = 0;
+ 	color darkItemColor;
+ 	
+ 	char whiteColorEscapeSequence[20],
+@@ -3315,7 +3315,7 @@
+ short getLineCoordinates(short listOfCoordinates[][2], const short originLoc[2], const short targetLoc[2]) {
+ 	float targetVector[2], error[2];
+ 	short largerTargetComponent, currentVector[2], previousVector[2], quadrantTransform[2], i;
+-	short currentLoc[2], previousLoc[2];
++	short currentLoc[2];
+ 	short cellNumber = 0;
+ 	
+ 	if (originLoc[0] == targetLoc[0] && originLoc[1] == targetLoc[1]) {
+@@ -3342,9 +3342,6 @@
+ 	
+ 	do {
+ 		for (i=0; i<= 1; i++) {
+-			
+-			previousLoc[i] = currentLoc[i];
+-			
+ 			currentVector[i] += targetVector[i];
+ 			error[i] += (targetVector[i] == 1 ? 0 : targetVector[i]);
+ 			
+@@ -4559,7 +4556,7 @@
+ // returns whether the bolt effect should autoID any staff or wand it came from, if it came from a staff or wand
+ boolean zap(short originLoc[2], short targetLoc[2], bolt *theBolt, boolean hideDetails) {
+ 	short listOfCoordinates[MAX_BOLT_LENGTH][2];
+-	short i, j, k, x, y, x2, y2, numCells, blinkDistance, boltLength, initialBoltLength, lights[DCOLS][DROWS][3];
++	short i, j, k, x, y, x2, y2, numCells, blinkDistance = 0, boltLength, initialBoltLength, lights[DCOLS][DROWS][3];
+ 	creature *monst = NULL, *shootingMonst;
+ 	char buf[COLS], monstName[COLS];
+ 	boolean autoID = false;
+@@ -5746,7 +5743,7 @@
+ 	item *thrownItem;
+ 	char buf[COLS], theName[COLS];
+ 	unsigned char command[10];
+-	short maxDistance, zapTarget[2], originLoc[2], quantity;
++	short maxDistance, zapTarget[2], quantity;
+ 	boolean autoTarget;
+ 	
+ 	command[0] = THROW_KEY;
+@@ -5802,8 +5799,6 @@
+ 		thrownItem->quantity = 1;
+ 		
+ 		itemName(thrownItem, theName, false, false, NULL);
+-		originLoc[0] = player.xLoc;
+-		originLoc[1] = player.yLoc;
+ 		
+ 		throwItem(thrownItem, &player, zapTarget, maxDistance);
+ 	} else {
+--- a/src/brogue/Monsters.c
++++ b/src/brogue/Monsters.c
+@@ -3988,7 +3988,7 @@
+ void monsterDetails(char buf[], creature *monst) {
+ 	char monstName[COLS], capMonstName[COLS], theItemName[COLS * 3], newText[20*COLS];
+ 	short i, j, combatMath, combatMath2, playerKnownAverageDamage, playerKnownMaxDamage, commaCount, realArmorValue;
+-	boolean anyFlags, displayedItemText = false, alreadyDisplayedDominationText = false;
++	boolean anyFlags, alreadyDisplayedDominationText = false;
+ 	item *theItem;
+ 	
+ 	buf[0] = '\0';
+@@ -4179,7 +4179,6 @@
+ 			i = strlen(buf);
+ 			i = encodeMessageColor(buf, i, &itemMessageColor);
+ 			strcat(buf, newText);
+-			displayedItemText = true;
+ 		}
+ 	}
+ 	
+--- a/src/brogue/Recordings.c
++++ b/src/brogue/Recordings.c
+@@ -28,7 +28,7 @@
+ 
+ #define RECORDING_HEADER_LENGTH		32	// bytes at the start of the recording file to store global data
+ 
+-#pragma mark Recording functions
++// #pragma mark Recording functions
+ 
+ void recordChar(unsigned char c) {
+ 	inputRecordBuffer[locationInRecordingBuffer++] = c;
+@@ -232,7 +232,7 @@
+ 	}
+ }
+ 
+-#pragma mark Playback functions
++// #pragma mark Playback functions
+ 
+ void fillBufferFromFile() {
+ //	short i;
+@@ -439,7 +439,7 @@
+ 	}
+ }
+ 
+-#pragma mark Hybrid and miscellaneous
++// #pragma mark Hybrid and miscellaneous
+ 
+ // creates a game recording file, or if in playback mode,
+ // initializes based on and starts reading from the recording file
+@@ -719,13 +719,11 @@
+ }
+ 
+ void pausePlayback() {
+-    short oldRNG;
+ 	if (!rogue.playbackPaused) {
+ 		rogue.playbackPaused = true;
+ 		messageWithColor(KEYBOARD_LABELS ? "recording paused. Press space to play." : "recording paused.",
+                          &teal, false);
+ 		refreshSideBar(-1, -1, false);
+-        oldRNG = rogue.RNG;
+         //rogue.RNG = RNG_SUBSTANTIVE;
+ 		mainInputLoop();
+ 		//rogue.RNG = oldRNG;
+@@ -1170,7 +1168,7 @@
+ 	}
+ }
+ 
+-#pragma mark Debug functions
++// #pragma mark Debug functions
+ 
+ // the following functions are used to create human-readable descriptions of playback files for debugging purposes
+ 
+--- a/src/brogue/Architect.c
++++ b/src/brogue/Architect.c
+@@ -939,14 +939,14 @@
+ 					  item *parentSpawnedItems[MACHINES_BUFFER_LENGTH],
+ 					  creature *parentSpawnedMonsters[MACHINES_BUFFER_LENGTH]) {
+ 	
+-	short i, j, k, feat, randIndex, totalFreq, gateCandidates[50][2], instance, instanceCount, qualifyingTileCount,
+-	featX, featY, itemCount, monsterCount,
++	short i, j, k, feat, randIndex, totalFreq, gateCandidates[50][2], instance, instanceCount = 0, qualifyingTileCount,
++	featX, featY = 0, itemCount, monsterCount,
+ 	sRows[DROWS], sCols[DCOLS],
+ 	**distanceMap, distance25, distance75, distances[100], distanceBound[2],
+ 	personalSpace, failsafe, locationFailsafe,
+ 	machineNumber;
+ 	const unsigned long alternativeFlags[2] = {MF_ALTERNATIVE, MF_ALTERNATIVE_2};
+-    boolean success;
++    boolean success = false;
+ 	
+ 	// Our boolean grids:
+ 	//	Interior:		This is the master grid for the machine. All area inside the machine are set to true.
+--- a/src/brogue/Movement.c
++++ b/src/brogue/Movement.c
+@@ -70,7 +70,7 @@
+ 
+ enum dungeonLayers highestPriorityLayer(short x, short y, boolean skipGas) {
+ 	short bestPriority = 10000;
+-	enum dungeonLayers tt, best;
++	enum dungeonLayers tt, best = 0;
+ 	
+ 	for (tt = 0; tt < NUMBER_TERRAIN_LAYERS; tt++) {
+ 		if (tt == GAS && skipGas) {
+--- a/src/platform/main.c
++++ b/src/platform/main.c
+@@ -1,6 +1,12 @@
+ #include "platform.h"
+ 
+ #ifdef BROGUE_TCOD
++#ifdef true
++#undef true
++#endif
++#ifdef false
++#undef false
++#endif
+ #include "libtcod.h"
+ TCOD_renderer_t renderer = TCOD_RENDERER_SDL; // the sdl renderer is more reliable than the opengl renderer
+ short brogueFontSize = -1;
+--- a/src/platform/platformdependent.c
++++ b/src/platform/platformdependent.c
+@@ -21,6 +21,7 @@
+  *  along with Brogue.  If not, see <http://www.gnu.org/licenses/>.
+  */
+ 
++#include <ctype.h>
+ #include <stdio.h>
+ #include <string.h>
+ #include <time.h>
+@@ -85,7 +86,7 @@
+ // sorts the entries of the scoreBuffer global variable by score in descending order;
+ // returns the sorted line number of the most recent entry
+ short sortScoreBuffer() {
+-	short i, j, highestUnsortedLine, mostRecentSortedLine;
++	short i, j, highestUnsortedLine, mostRecentSortedLine = 0;
+ 	long highestUnsortedScore, mostRecentDate;
+ 	brogueScoreEntry sortedScoreBuffer[HIGH_SCORES_COUNT];
+ 	boolean lineSorted[HIGH_SCORES_COUNT];
+--- a/src/platform/term.c
++++ b/src/platform/term.c
+@@ -118,15 +118,6 @@
+ 	}
+ }
+ 
+-static void term_enable_bracketed_paste( ) {
+-	if (is_xterm) {
+-		printf ("\033[2004h");
+-	}
+-	// now pasted text will come in as
+-	// \033[200~%s\033[201~
+-	// so we can use that to receive seeds or filenames or whatever
+-}
+-
+ static int curses_init( ) {
+ 	if (videomode.curses) return 0;
+ 	
+@@ -283,17 +274,6 @@
+ 	return sqrt(lbias * SQUARE(L2->L - L1->L) + SQUARE(L2->a - L1->a) + SQUARE(L2->b - L1->b));
+ }
+ 
+-static float CIExyY(CIE *L1, CIE *L2) {
+-	// this does a good job of estimating the difference between two colors, ignoring brightness
+-	return sqrt(SQUARE(L2->x - L1->x) + SQUARE(L2->y - L1->y));
+-}
+-
+-static float adamsDistance(CIE *v1, CIE *v2) {
+-	// not really the right metric, this
+-	// return sqrt(SQUARE(v2->X - v1->X) + SQUARE(v2->Y - v1->Y) + SQUARE(v2->Z - v1->Z));
+-	return sqrt(SQUARE(v2->X - v1->X) + SQUARE(v2->Y - v1->Y) + SQUARE(v2->Z - v1->Z));
+-}
+-
+ static void init_coersion() {
+ 	fcolor sRGB_white = (fcolor) {1, 1, 1};
+ 	white = toCIE(sRGB_white);
+@@ -372,32 +352,6 @@
+ 	}
+ }
+ 
+-static int coerce (fcolor *color, float dark, float saturation, float brightcut, float grey) {
+-	float bright = color->r;
+-	if (color->g > bright) bright = color->g;
+-	if (color->b > bright) bright = color->b;
+-	if (bright < dark) {
+-		if (bright > grey) {
+-			return 8;
+-		}
+-		return 0;
+-	}
+-	float cut = bright * saturation;
+-
+-	int r = color->r > cut, g = color->g > cut, b = color->b > cut;
+-	return r + g * 2 + b * 4 + ((bright > brightcut) ? 8 : 0);
+-}
+-
+-static int coerce_color (fcolor *fg, fcolor *bg) {
+-	int f = coerce(fg, 0.3, 0.8, .80, .1);
+-	int b = 7 & coerce(bg, 0.3, 0.35, 1, 0);
+-	if (f == b) f ^= 8;
+-	return COLORING(f, b);
+-}
+-
+-
+-
+-
+ static void initialize_prs() {
+ 	int i;
+ 	for (i = 16; i < 255; i++) {

@@ -1,0 +1,26 @@
+Source: brogue
+Maintainer: Fabian Wolff <fabi.wolff@arcor.de>
+Section: games
+Priority: extra
+Build-Depends: debhelper (>= 9),
+               libtcod-dev,
+               libncurses5-dev
+Standards-Version: 3.9.8
+Homepage: https://sites.google.com/site/broguegame/
+
+Package: brogue
+Architecture: any
+Depends: ${misc:Depends},
+         ${shlibs:Depends}
+Description: classic roguelike game with attractive ASCII graphics
+ Brogue is a roguelike game by Brian Walker. It is a direct descendant
+ of Rogue that favors simplicity over complexity. Its revered ASCII
+ graphics make each level of its procedurally generated dungeon come
+ alive.
+ .
+ Your goal is to travel to the 26th subterranean floor of the dungeon,
+ retrieve the Amulet of Yendor and return with it to the surface.
+ .
+ Brogue runs both in windowed mode and in the console with ncurses. It
+ can be controlled with the mouse or purely with the keyboard using
+ either the vi keys or the keypad keys.

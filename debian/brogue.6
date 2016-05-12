@@ -1,0 +1,60 @@
+.TH BROGUE 6 "April 29, 2016" "Version 1.7.4"
+
+.SH NAME
+brogue \- a classic roguelike game by Brian Walker
+
+.SH SYNOPSIS
+.IX Header SYNOPSIS
+brogue  [ \fIoption\fR [...] ]
+
+.SH DESCRIPTION
+.IX Header DESCRIPTION
+\&\fBbrogue\fR is a classic roguelike game written by Brian Walker. It
+is known for its clever use of \s-1ASCII\s0 graphics to create
+attractive, lively graphics even on a text-only console. Contrary to
+many modern roguelikes, \fBbrogue\fR is a successor to the original
+Rogue game. It favors simplicity over complexity while trying to keep
+the gameplay as interesting and varied as possible.
+
+.SH OPTIONS
+.IX Header OPTIONS
+.IP "\fB\-h\fR, \fB\-\-help\fR" 4
+.IX Item "-h, --help"
+Prints a help message.
+.IP "\fB\-V\fR, \fB\-\-version\fR" 4
+.IX Item "-V, --version"
+Prints version information.
+.IP "\fB\-\-scores\fR" 4
+.IX Item "--scores"
+Prints the scores to stdout and exits afterwards.
+.IP "\fB\-n\fR, \fB\-M\fR, \fB\-\-no\-menu\fR" 4
+.IX Item "-n, -M, --no-menu"
+Starts a new game immediately, skipping the menu.
+.IP "\fB\-s\fR \fIseed\fR" 4
+.IX Item "-s seed"
+Starts a new game with the specified numerical seed.
+.IP "\fB\-o\fR \fIfilename[.broguesave]\fR" 4
+.IX Item "-o filename[.broguesave]"
+Opens a save file (extension \fI.broguesave\fR is optional).
+.IP "\fB\-v\fR \fIrecording[.broguerec]\fR" 4
+.IX Item "-v recording[.broguerec]"
+View a recorded session (extension \fI.broguesave\fR is optional).
+.IP "\fB\-\-size\fR \fIN\fR" 4
+.IX Item "--size N"
+Starts the game with font size \fIN\fR (1 to 13).
+.IP "\fB\-\-SDL\fR" 4
+.IX Item "--SDL"
+Forces libtcod to use a \s-1SDL\s0 renderer (default).
+.IP "\fB\-gl\fR, \fB\-\-opengl\fR" 4
+.IX Item "-gl, --opengl"
+Forces libtcod to use an OpenGL renderer.
+.IP "\fB\-t\fR, \fB\-\-term\fR" 4
+.IX Item "-t, --term"
+Runs the game in ncurses-based terminal mode.
+
+.SH SEE ALSO
+.IX Header SEE ALSO
+.IP "\fB/usr/share/doc/brogue/seed-catalog.txt\fR" 4
+View the contents of the first 5 depths for the first 1000 seeds. To
+play one of those seeds, follow the instructions given there or launch
+brogue with the \fB\-s\fR option.
