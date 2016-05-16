@@ -4,7 +4,8 @@ Section: games
 Priority: extra
 Build-Depends: debhelper (>= 9),
                libtcod-dev,
-               libncurses5-dev
+               libncurses5-dev,
+               libsdl2-dev
 Standards-Version: 3.9.8
 Homepage: https://sites.google.com/site/broguegame/
 
