@@ -1,0 +1,128 @@
+Description: Fix the disappearance of item names during the game
+Author: Fabian Wolff <fabi.wolff@arcor.de>
+Forwarded: no
+Last-Update: 2016-06-03
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/src/brogue/Items.c
++++ b/src/brogue/Items.c
+@@ -1325,15 +1325,21 @@
+ 				if (theItem->flags & ITEM_RUNIC) {
+ 					if ((theItem->flags & ITEM_RUNIC_IDENTIFIED) || rogue.playbackOmniscience) {
+ 						if (theItem->enchant2 == W_SLAYING) {
+-							sprintf(root, "%s of %s slaying%s",
++							char *tempbuf;
++							asprintf(&tempbuf, "%s of %s slaying%s",
+ 									root,
+-                                    monsterClassCatalog[theItem->vorpalEnemy].name,
++									monsterClassCatalog[theItem->vorpalEnemy].name,
+ 									grayEscapeSequence);
++							strcpy(root, tempbuf);
++							free(tempbuf);
+ 						} else {
+-							sprintf(root, "%s of %s%s",
++							char *tempbuf;
++							asprintf(&tempbuf, "%s of %s%s",
+ 									root,
+ 									weaponRunicNames[theItem->enchant2],
+ 									grayEscapeSequence);
++							strcpy(root, tempbuf);
++							free(tempbuf);
+ 						}
+ 					} else if (theItem->flags & (ITEM_IDENTIFIED | ITEM_RUNIC_HINTED)) {
+ 						if (grayEscapeSequence[0]) {
+@@ -1342,7 +1348,10 @@
+ 						strcat(root, " (unknown runic)");
+ 					}
+ 				}
+-				sprintf(root, "%s%s <%i>", root, grayEscapeSequence, theItem->strengthRequired);
++				char * tempbuf;
++				asprintf(&tempbuf, "%s%s <%i>", root, grayEscapeSequence, theItem->strengthRequired);
++				strcpy(root, tempbuf);
++				free(tempbuf);
+ 			}
+ 			break;
+ 		case ARMOR:
+@@ -1353,9 +1362,19 @@
+ 					&& ((theItem->flags & ITEM_RUNIC_IDENTIFIED)
+ 						|| rogue.playbackOmniscience)) {
+ 						if (theItem->enchant2 == A_IMMUNITY) {
+-							sprintf(root, "%s of %s immunity", root, monsterClassCatalog[theItem->vorpalEnemy].name);
++							char *tempbuf;
++							asprintf(&tempbuf, "%s of %s immunity",
++								root,
++								monsterClassCatalog[theItem->vorpalEnemy].name);
++							strcpy(root, tempbuf);
++							free(tempbuf);
+ 						} else {
+-							sprintf(root, "%s of %s", root, armorRunicNames[theItem->enchant2]);
++							char *tempbuf;
++							asprintf(&tempbuf, "%s of %s",
++								root,
++								armorRunicNames[theItem->enchant2]);
++							strcpy(root, tempbuf);
++							free(tempbuf);
+ 						}
+ 					}
+ 				
+@@ -1373,7 +1392,13 @@
+ 					}
+ 					strcpy(root, buf);
+ 				} else {
+-					sprintf(root, "%s%s <%i>", root, grayEscapeSequence, theItem->strengthRequired);
++					char *tempbuf;
++					asprintf(&tempbuf, "%s%s <%i>",
++						root,
++						grayEscapeSequence,
++						theItem->strengthRequired);
++					strcpy(root, tempbuf);
++					free(tempbuf);
+ 				}
+ 				
+ 				if ((theItem->flags & ITEM_RUNIC)
+@@ -1437,22 +1462,25 @@
+ 						pluralization);
+ 			}
+ 			if (includeDetails) {
++				char *tmpbuf;
+ 				if (theItem->flags & (ITEM_IDENTIFIED | ITEM_MAX_CHARGES_KNOWN) || rogue.playbackOmniscience) {
+-					sprintf(root, "%s%s [%i]",
++					asprintf(&tmpbuf, "%s%s [%i]",
+ 							root,
+ 							grayEscapeSequence,
+ 							theItem->charges);
+ 				} else if (theItem->enchant2 > 2) {
+-					sprintf(root, "%s%s (used %i times)",
++					asprintf(&tmpbuf, "%s%s (used %i times)",
+ 							root,
+ 							grayEscapeSequence,
+ 							theItem->enchant2);
+ 				} else if (theItem->enchant2) {
+-					sprintf(root, "%s%s (used %s)",
++					asprintf(&tmpbuf, "%s%s (used %s)",
+ 							root,
+ 							grayEscapeSequence,
+ 							(theItem->enchant2 == 2 ? "twice" : "once"));
+ 				}
++				strcpy(root, tmpbuf);
++				free(tmpbuf);
+ 			}
+ 			break;
+ 		case STAFF:
+@@ -1472,11 +1500,14 @@
+ 						pluralization);
+ 			}
+ 			if (includeDetails) {
++				char *tmpbuf;
+ 				if ((theItem->flags & ITEM_IDENTIFIED) || rogue.playbackOmniscience) {
+-					sprintf(root, "%s%s [%i/%i]", root, grayEscapeSequence, theItem->charges, theItem->enchant1);
++					asprintf(&tmpbuf, "%s%s [%i/%i]", root, grayEscapeSequence, theItem->charges, theItem->enchant1);
+ 				} else if (theItem->flags & ITEM_MAX_CHARGES_KNOWN) {
+-					sprintf(root, "%s%s [?/%i]", root, grayEscapeSequence, theItem->enchant1);
++					asprintf(&tmpbuf, "%s%s [?/%i]", root, grayEscapeSequence, theItem->enchant1);
+ 				}
++				strcpy(root, tmpbuf);
++				free(tmpbuf);
+ 			}
+ 			break;
+ 		case RING:
